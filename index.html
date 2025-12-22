@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="UTF-8">
+  <script src="https://thunkable.github.io/webviewer-extension/thunkableWebviewerExtension.js" type="text/javascript"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamic Page with Thunkable Integration</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap');
+
+    /* Global Styles */
+    body {
+      font-family: 'Montserrat', sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #ffffff;
+      overflow: hidden;
+    }
+
+    /* Search + Filters wrapper */
+    .search-and-filters {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .search-row input[type="text"] {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    .search-row button {
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: none;
+      background-color: #7A68EB;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .search-row .clear-btn {
+      background-color: #f0f0f0;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    /* Horizontally scrollable container for filters */
+    .filter-scroll-container {
+      width: 100%;
+      overflow-x: auto;
+      white-space: nowrap;
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+      background-color: #f7f7f7;
+    }
+
+    /* Filter Button Styles */
+    .filter-scroll-container button {
+      border: 1px solid black;   /* black outline by default */
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: normal;
+      cursor: pointer;
+      background-color: white;   /* white background by default */
+      color: black;              /* black text */
+      white-space: nowrap;
+      transition: background-color 0.3s, border 0.3s;
+    }
+    .filter-scroll-container button:hover {
+      background-color: #eaeaea;
+    }
+
+    /* Active filter style: no border & light gray background */
+    .filter-scroll-container button.active {
+      border: none;
+      background-color: #d3d3d3;
+    }
+
+    .slider {
+      width: 100%;
+      height: calc(100vh - 140px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .slides {
+      overflow-y: auto;
+      /* Adjust height so it doesn't overlap with filter bar (50-60px) */
+      height: calc(100% - 60px);
+      padding: 20px 10px;
+      box-sizing: border-box;
+    }
+
+    .slide {
+      width: calc(100% - 20px);
+      padding: 20px;
+      text-align: left;
+      box-sizing: border-box;
+      border-radius: 30px;
+      margin: 20px 10px;
+      cursor: pointer;
+    }
+
+    /* Example background colors for multiple slides */
+    .slide:nth-child(1) { background-color: #FFF8E7; }
+    .slide:nth-child(2) { background-color: #E6F7FF; }
+    .slide:nth-child(3) { background-color: #E6FFE6; }
+    .slide:nth-child(4) { background-color: #F5E6FF; }
+    .slide:nth-child(5) { background-color: #FFE6E6; }
+    .slide:nth-child(6) { background-color: #FFEFD5; }
+    .slide:nth-child(7) { background-color: #FFFFE0; }
+    .slide:nth-child(8) { background-color: #E0FFFF; }
+    .slide:nth-child(9) { background-color: #F0E68C; }
+
+    .slide h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0 0 5px;
+    }
+
+    .slide p {
+      font-size: 12px;
+      font-weight: 400;
+      margin: 5px 0;
+      display: flex;
+      align-items: center;
+    }
+
+    .slide .icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      margin-right: 10px;
+      vertical-align: middle;
+      background-size: cover;
+    }
+
+    .icon-location {
+      background-image: url('https://res.cloudinary.com/di751ehfz/image/upload/v1722218141/mp-removebg-preview_ikwqdz.png');
+    }
+    .icon-clock {
+      background-image: url('https://res.cloudinary.com/di751ehfz/image/upload/v1722218138/circ-removebg-preview_jlvmsy.png');
+    }
+    .icon-dyslexia {
+      background-image: url('https://res.cloudinary.com/di751ehfz/image/upload/v1722218136/puzle-removebg-preview_oguelc.png');
+    }
+
+    .slide .price {
+      display: inline-block;
+      padding: 8px 16px;
+      background-color: #ff9999;
+      border-radius: 100px;
+      font-weight: 600;
+      color: #000;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .popup-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .popup {
+      background: #fff;
+      border-radius: 20px;
+      padding: 20px;
+      width: 300px;
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
+      position: relative;
+      text-align: left;
+    }
+
+    .popup h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .popup p {
+      margin: 5px 0;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+    }
+
+    .popup .icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 10px;
+      vertical-align: middle;
+      background-size: cover;
+    }
+
+    .popup .price-tag {
+      display: inline-block;
+      padding: 5px 10px;
+      background-color: #ff9999;
+      border-radius: 15px;
+      color: #fff;
+      font-weight: bold;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    /* Description in popup only */
+    .popup p.description {
+      font-size: 12px;
+      font-weight: 300;
+      opacity: 0.8;
+      color: #333;
+      display: block;
+      margin-top: 5px;
+    }
+
+    .popup .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    /* Star button (save) */
+    .star-button {
+      position: absolute;
+      top: 12px; 
+      right: 50px;
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    /* Button styles for the popup */
+    .popup .button {
+      padding: 8px 16px;
+      border-radius: 20px;
+      margin: 10px 5px 0;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      text-decoration: none;
+      color: #fff;
+      text-align: center;
+      display: inline-block;
+    }
+
+    .view-org {
+      background-color: #7A68EB;
+    }
+
+    .view-website {
+      background-color: #33CF90;
+    }
+
+    /* Load more area */
+    .load-more-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+
+    .load-more-wrap button {
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: none;
+      background-color: #7A68EB;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .load-more-wrap .loading {
+      background-color: #f0f0f0;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+
+    .no-results {
+      color: grey;
+      font-size: 14px;
+      text-align: center;
+      padding: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- SEARCH (added) + FILTER BUTTONS (Horizontally scrollable) -->
+<div class="search-and-filters">
+  <div class="search-row">
+    <input id="searchInput" type="text" placeholder="Search workshops..." />
+    <button id="searchBtn" onclick="onSearchClick()">Search</button>
+    <button id="clearBtn" class="clear-btn" onclick="clearSearch()">Clear</button>
+  </div>
+
+  <div class="filter-scroll-container">
+    <!-- Price filters are mutually exclusive -->
+    <button id="btnPriceHigh" onclick="toggleFilter('priceHighToLow','btnPriceHigh','price')">Price: Highest to Lowest</button>
+    <button id="btnPriceLow" onclick="toggleFilter('priceLowToHigh','btnPriceLow','price')">Price: Lowest to Highest</button>
+    <!-- Date filters are mutually exclusive -->
+    <button id="btnDateSoonest" onclick="toggleFilter('dateSoonest','btnDateSoonest','date')">Date: Soonest</button>
+    <button id="btnDateFurthest" onclick="toggleFilter('dateFurthest','btnDateFurthest','date')">Date: Furthest</button>
+  </div>
+</div>
+
+<div class="slider">
+  <div class="slides" id="slides">
+    <!-- Slides will be dynamically added by JavaScript -->
+  </div>
+
+  <!-- Load more area -->
+  <div class="load-more-wrap" id="loadMoreWrap" style="display: none;">
+    <button id="loadMoreBtn" onclick="onLoadMoreClick()">Load more</button>
+  </div>
+</div>
+
+<!-- POPUP OVERLAY -->
+<div class="popup-overlay" id="popupOverlay">
+  <div class="popup" id="popup">
+    <!-- Close Button -->
+    <span class="close-btn" onclick="closePopup()">×</span>
+    <!-- Star (Save) Button -->
+    <img id="starButton" class="star-button" src="https://res.cloudinary.com/di751ehfz/image/upload/v1739370280/star_bxmhkq.png" onclick="toggleSaved()">
+
+    <h2 id="popupTitle">Workshop Title</h2>
+    <p><a href="#" id="popupOrganization">Organization Name</a></p>
+    <p><span class="icon icon-dyslexia"></span><span id="popupTopic">SEN NAME</span></p>
+    <p><span class="icon icon-clock"></span><span id="popupTime">Date & Time</span></p>
+    <p><span class="icon icon-location"></span><span id="popupLocation">Location</span></p>
+    <!-- Description ONLY in popup -->
+    <p class="description" id="popupDescription"></p>
+
+    <div class="price-tag" id="popupPrice">200 HKD</div>
+    <!-- Extra Buttons inside popup -->
+    <a href="#" class="button view-org" onclick="postMessage('View Organisation')">View Organisation</a>
+    <a href="#" class="button view-website" onclick="postMessage('View Website')">View Website</a>
+  </div>
+</div>
+
+<script>
+  const slidesContainer = document.getElementById('slides');
+  const loadMoreWrap = document.getElementById('loadMoreWrap');
+  const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const searchInput = document.getElementById('searchInput');
+  const searchBtn = document.getElementById('searchBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  let targetLang = 'en';               // Default language
+  let slideDataOriginal = [];          // Original data (unfiltered)
+  let translatedDataOriginal = [];     // Translated data in parallel (may contain nulls to be filled on demand)
+  let masterCombined = [];             // [{ original, translated }]
+  let displayList = [];                // filtered+sorted list used for rendering
+  let displayedCount = 10;             // how many currently rendered from displayList
+  const pageSize = 10;                 // increment for load more
+  let activeFilters = [];              // e.g. ["priceHighToLow","dateSoonest"]
+  let savedIDs = [];
+  let currentPopupID = null;
+  let currentSearchQuery = "";         // raw user search string
+  let isTranslating = false;
+  let translationAPIUrl = "https://script.google.com/macros/s/AKfycbyOjmRSRhbTQ4HEHnR5yAb5eoNQJn2t80yvmdX03uYZzqUXqCPnZ0AjTaAEgNcleyBM/exec";
+
+  // Pre-translated static text content
+  const staticTranslations = {
+    "en": {
+      "allWorkshops": "All Workshops",
+      "priceHighToLow": "Price: Highest to Lowest",
+      "priceLowToHigh": "Price: Lowest to Highest",
+      "dateSoonest": "Date: Soonest",
+      "dateFurthest": "Date: Furthest",
+      "noRecommendations": "No Recommendations",
+      "viewOrganisation": "View Organisation",
+      "viewWebsite": "View Website",
+      "searchPlaceholder": "Search workshops by name, organisation, topic, date, time, description, price, age, gender, service type...",
+      "searchButton": "Search",
+      "clearButton": "Clear",
+      "loadMore": "Load more",
+      "loading": "Loading...",
+      "loadedAll": "No more results"
+    },
+    "zh-TW": {
+      "allWorkshops": "所有工作坊",
+      "priceHighToLow": "價格：從高到低",
+      "priceLowToHigh": "價格：從低到高",
+      "dateSoonest": "日期：最近",
+      "dateFurthest": "日期：最遠",
+      "noRecommendations": "沒有推薦",
+      "viewOrganisation": "查看機構",
+      "viewWebsite": "查看網站",
+      "searchPlaceholder": "按名稱、機構、主題、日期、時間、描述、價格、年齡、性別、服務類型搜索工作坊...",
+      "searchButton": "搜索",
+      "clearButton": "清除",
+      "loadMore": "加載更多",
+      "loading": "加載中...",
+      "loadedAll": "沒有更多結果"
+    },
+    "zh-CN": {
+      "allWorkshops": "所有研讨会",
+      "priceHighToLow": "价格：从高到低",
+      "priceLowToHigh": "价格：从低到高",
+      "dateSoonest": "日期：最近",
+      "dateFurthest": "日期：最远",
+      "noRecommendations": "没有推荐",
+      "viewOrganisation": "查看机构",
+      "viewWebsite": "查看网站",
+      "searchPlaceholder": "按名称、机构、主题、日期、时间、描述、价格、年龄、性别、服务类型搜索活动...",
+      "searchButton": "搜索",
+      "clearButton": "清除",
+      "loadMore": "加载更多",
+      "loading": "加载中...",
+      "loadedAll": "没有更多结果"
+    }
+  };
+
+  // ---------------------- Utilities ---------------------- //
+  function parseDDMMYYYY(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return new Date('1970-01-01');
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return new Date('1970-01-01');
+    const [day, month, year] = parts;
+    return new Date(`${year}-${month}-${day}`);
+  }
+
+  function formatDateTime(dateStrDDMMYYYY, timeStr) {
+    if (!dateStrDDMMYYYY) return timeStr || "";
+    const [day, month, year] = dateStrDDMMYYYY.split('/');
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const monthName = monthNames[Number(month) - 1] || "Unknown";
+    return `${Number(day)} ${monthName} ${year} ${timeStr || ""}`;
+  }
+
+  function getStaticText(key) {
+    const set = staticTranslations[targetLang] || staticTranslations["en"];
+    return set[key] || staticTranslations["en"][key] || "";
+  }
+
+  // ---------------------- Translation helpers ---------------------- //
+  // Translate a set of rows (CSV style) and return array of parsed rows
+  // rowsCsv: string where each line is "title|organization|topic|time|location|price|description|age|gender|serviceType"
+  async function callTranslationApi(rowsCsv, source = 'en', target = '') {
+    const url = `${translationAPIUrl}?text=${encodeURIComponent(rowsCsv)}&source=${encodeURIComponent(source)}&target=${encodeURIComponent(target)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const t = await res.text();
+      throw new Error("Translation API error: " + t);
+    }
+    const translatedText = await res.text();
+    return translatedText.split("\n");
+  }
+
+  // Ensure translations exist for the index range [start, end) inclusive-exclusive
+  async function ensureTranslatedRange(start, end) {
+    if (targetLang === 'en') {
+      for (let i = start; i < end && i < slideDataOriginal.length; i++) {
+        if (!translatedDataOriginal[i]) translatedDataOriginal[i] = { 
+          title: slideDataOriginal[i].title || "",
+          organization: slideDataOriginal[i].organization || "",
+          topic: slideDataOriginal[i].topic || "",
+          time: slideDataOriginal[i].time || "",
+          location: slideDataOriginal[i].location || "",
+          price: slideDataOriginal[i].price != null ? String(slideDataOriginal[i].price) : "",
+          description: slideDataOriginal[i].description || "",
+          age: slideDataOriginal[i].age || "",
+          gender: slideDataOriginal[i].gender || "",
+          serviceType: slideDataOriginal[i].serviceType || ""
+        };
+      }
+      return;
+    }
+
+    // Collect indices needing translation
+    const indices = [];
+    for (let i = start; i < end && i < slideDataOriginal.length; i++) {
+      if (!translatedDataOriginal[i]) indices.push(i);
+    }
+    if (indices.length === 0) return;
+
+    // Build CSV for indices in order
+    const rows = indices.map(i => {
+      const it = slideDataOriginal[i];
+      // ensure none of the fields contain the pipe char; replace with space
+      const safe = (v) => (v == null ? "" : String(v)).replace(/\|/g, ' ');
+      return `${safe(it.title)}|${safe(it.organization)}|${safe(it.topic)}|${safe(it.time)}|${safe(it.location)}|${safe(it.price)}|${safe(it.description)}|${safe(it.age)}|${safe(it.gender)}|${safe(it.serviceType)}`;
+    }).join("\n");
+
+    try {
+      isTranslating = true;
+      const translatedRows = await callTranslationApi(rows, 'en', targetLang);
+      // Map back
+      for (let j = 0; j < indices.length; j++) {
+        const idx = indices[j];
+        const line = translatedRows[j] || "";
+        const parts = line.split("|");
+        translatedDataOriginal[idx] = {
+          title: parts[0] || "",
+          organization: parts[1] || "",
+          topic: parts[2] || "",
+          time: parts[3] || "",
+          location: parts[4] || "",
+          price: parts[5] || "",
+          description: parts[6] || "",
+          age: parts[7] || "",
+          gender: parts[8] || "",
+          serviceType: parts[9] || ""
+        };
+      }
+    } catch (err) {
+      console.error("Translation chunk error", err);
+      // fallback: copy original text into translated slots to avoid nulls
+      for (let idx of indices) {
+        const it = slideDataOriginal[idx];
+        translatedDataOriginal[idx] = { 
+          title: it.title || "",
+          organization: it.organization || "",
+          topic: it.topic || "",
+          time: it.time || "",
+          location: it.location || "",
+          price: it.price != null ? String(it.price) : "",
+          description: it.description || "",
+          age: it.age || "",
+          gender: it.gender || "",
+          serviceType: it.serviceType || ""
+        };
+      }
+    } finally {
+      isTranslating = false;
+    }
+  }
+
+  // Translate all remaining items in chunks. Used on search to ensure completeness
+  async function translateAllRemaining(chunk = 30) {
+    if (targetLang === 'en') {
+      // just fill any nulls with original
+      for (let i = 0; i < slideDataOriginal.length; i++) {
+        if (!translatedDataOriginal[i]) {
+          const it = slideDataOriginal[i];
+          translatedDataOriginal[i] = { 
+            title: it.title || "",
+            organization: it.organization || "",
+            topic: it.topic || "",
+            time: it.time || "",
+            location: it.location || "",
+            price: it.price != null ? String(it.price) : "",
+            description: it.description || "",
+            age: it.age || "",
+            gender: it.gender || "",
+            serviceType: it.serviceType || ""
+          };
+        }
+      }
+      return;
+    }
+
+    let i = 0;
+    while (i < slideDataOriginal.length) {
+      // find next block that has untranslated items
+      const start = i;
+      let blockIndices = [];
+      for (let j = start; j < Math.min(slideDataOriginal.length, start + chunk); j++) {
+        if (!translatedDataOriginal[j]) blockIndices.push(j);
+      }
+      if (blockIndices.length > 0) {
+        await ensureTranslatedRange(blockIndices[0], blockIndices[blockIndices.length - 1] + 1);
+      }
+      i = start + chunk;
+    }
+  }
+
+  // ---------------------- Filter and Search Logic ---------------------- //
+  function applyActiveSorting(list) {
+    // Sorting must be stable and obey activeFilters order
+    const sorted = [...list];
+    activeFilters.forEach(filter => {
+      if (filter === 'priceHighToLow') {
+        sorted.sort((a, b) => (b.original.price || 0) - (a.original.price || 0));
+      } else if (filter === 'priceLowToHigh') {
+        sorted.sort((a, b) => (a.original.price || 0) - (b.original.price || 0));
+      } else if (filter === 'dateSoonest') {
+        sorted.sort((a, b) => parseDDMMYYYY(a.original.Date) - parseDDMMYYYY(b.original.Date));
+      } else if (filter === 'dateFurthest') {
+        sorted.sort((a, b) => parseDDMMYYYY(b.original.Date) - parseDDMMYYYY(a.original.Date));
+      }
+    });
+    return sorted;
+  }
+
+  // Create a searchable text blob for an item given available translated or original fields
+  function buildSearchableText(item, idx) {
+    const t = translatedDataOriginal[idx];
+    const o = item.original;
+    const pieces = [];
+
+    // Prefer translated fields when targetLang not english and translation exists
+    if (t && targetLang !== 'en') {
+      pieces.push(t.title, t.organization, t.topic, t.time, t.location, t.price, t.description, t.age, t.gender, t.serviceType);
+    } else {
+      pieces.push(o.title, o.organization, o.topic, o.time, o.location, String(o.price), o.description, o.age, o.gender, o.serviceType);
+    }
+
+    // also include raw Date and ID
+    pieces.push(o.Date || "", o.id || "");
+    return pieces.filter(Boolean).join(" ").toLowerCase();
+  }
+
+  // Compute displayList from masterCombined, applying search and filters
+  function computeDisplayList() {
+    // Start with pairs
+    let list = masterCombined.map((obj, idx) => ({ original: obj.original, translated: obj.translated, __idx: idx }));
+
+    // Apply sorting based on activeFilters
+    list = applyActiveSorting(list);
+
+    // Apply search if present
+    const q = (currentSearchQuery || "").trim().toLowerCase();
+    if (q) {
+      list = list.filter(obj => {
+        const idx = obj.__idx;
+        const searchable = buildSearchableText(obj, idx);
+        return searchable.indexOf(q) !== -1;
+      });
+    }
+
+    displayList = list;
+    // reset displayedCount when new search or filter applied
+    if (displayedCount > pageSize) {
+      displayedCount = pageSize;
+    }
+  }
+
+  // Render up to displayedCount items from displayList
+  function renderSlidesPage() {
+    slidesContainer.innerHTML = "";
+    const langText = staticTranslations[targetLang] || staticTranslations["en"];
+    document.getElementById("btnPriceHigh").textContent = langText.priceHighToLow;
+    document.getElementById("btnPriceLow").textContent = langText.priceLowToHigh;
+    document.getElementById("btnDateSoonest").textContent = langText.dateSoonest;
+    document.getElementById("btnDateFurthest").textContent = langText.dateFurthest;
+
+    document.querySelector(".view-org").textContent = langText.viewOrganisation;
+    document.querySelector(".view-website").textContent = langText.viewWebsite;
+
+    searchInput.placeholder = langText.searchPlaceholder || searchInput.placeholder;
+    searchBtn.textContent = langText.searchButton || searchBtn.textContent;
+    clearBtn.textContent = langText.clearButton || clearBtn.textContent;
+    loadMoreBtn.textContent = langText.loadMore || loadMoreBtn.textContent;
+
+    if (!displayList || displayList.length === 0) {
+      slidesContainer.innerHTML = `<div class="no-results">${langText.noRecommendations}</div>`;
+      loadMoreWrap.style.display = "none";
+      return;
+    }
+
+    const toRender = displayList.slice(0, displayedCount);
+    toRender.forEach(entry => {
+      const idx = entry.__idx;
+      const t = translatedDataOriginal[idx] || {};
+      const o = entry.original;
+
+      const title = (t.title || o.title || "");
+      const org = (t.organization || o.organization || `Org #${o.OrgID || ""}`);
+      const topic = (t.topic || o.topic || "");
+      const dtStr = formatDateTime(o.Date, t.time || o.time);
+      const loc = (t.location || o.location || "");
+      const price = (t.price || (o.price != null ? `${o.price}` : "")) + ( (t.price || o.price != null) ? " HKD" : "" );
+
+      const slide = document.createElement("div");
+      slide.className = "slide";
+      slide.onclick = () => showPopup(t && Object.keys(t).length ? t : o, o.Date, o.id);
+      slide.innerHTML = `
+        <h2>${escapeHtml(title)}</h2>
+        <p><span style="color: #3498db;"><strong>${escapeHtml(org)}</strong></span></p>
+        <p><span class="icon icon-dyslexia"></span>${escapeHtml(topic)}</p>
+        <p><span class="icon icon-clock"></span>${escapeHtml(dtStr)}</p>
+        <p><span class="icon icon-location"></span>${escapeHtml(loc)}</p>
+        <div class="price">${escapeHtml(price)}</div>`;
+      slidesContainer.appendChild(slide);
+    });
+
+    // show or hide load more
+    if (displayList.length > displayedCount) {
+      loadMoreWrap.style.display = "flex";
+      loadMoreBtn.disabled = false;
+      loadMoreBtn.textContent = getStaticText("loadMore");
+      loadMoreBtn.classList.remove("loading");
+    } else {
+      loadMoreWrap.style.display = "none";
+    }
+  }
+
+  // ---------------------- Event handlers ---------------------- //
+  async function onSearchClick() {
+    currentSearchQuery = searchInput.value || "";
+    // If target language isn't english, ensure translations for all items before final search for accurate results
+    if (targetLang !== 'en') {
+      loadMoreWrap.style.display = "none";
+      loadMoreBtn.textContent = getStaticText("loading");
+      loadMoreBtn.classList.add("loading");
+      try {
+        await translateAllRemaining(25);
+      } catch (err) {
+        console.error("translateAllRemaining error", err);
+      } finally {
+        loadMoreBtn.classList.remove("loading");
+      }
+    }
+    computeDisplayList();
+    // show first page of results
+    displayedCount = pageSize;
+    renderSlidesPage();
+  }
+
+  function clearSearch() {
+    searchInput.value = "";
+    currentSearchQuery = "";
+    computeDisplayList();
+    displayedCount = pageSize;
+    renderSlidesPage();
+  }
+
+  async function onLoadMoreClick() {
+    // when loading more, ensure translations for the next range of items in displayList
+    const prevCount = displayedCount;
+    const nextCount = Math.min(displayList.length, displayedCount + pageSize);
+    // find indices in masterCombined that correspond to displayList[prevCount..nextCount-1]
+    const indicesToTranslate = [];
+    for (let i = prevCount; i < nextCount; i++) {
+      const item = displayList[i];
+      if (!item) continue;
+      const idx = item.__idx;
+      if (!translatedDataOriginal[idx]) indicesToTranslate.push(idx);
+    }
+
+    if (indicesToTranslate.length > 0 && targetLang !== 'en') {
+      // ensure contiguous ranges by grouping contiguous index segments to call ensureTranslatedRange
+      indicesToTranslate.sort((a,b) => a-b);
+      loadMoreBtn.disabled = true;
+      loadMoreBtn.textContent = getStaticText("loading");
+      loadMoreBtn.classList.add("loading");
+      try {
+        // group into ranges
+        let start = indicesToTranslate[0];
+        let end = start + 1;
+        for (let k = 1; k < indicesToTranslate.length; k++) {
+          const cur = indicesToTranslate[k];
+          if (cur === end) {
+            end++;
+          } else {
+            await ensureTranslatedRange(start, end);
+            start = cur;
+            end = cur + 1;
+          }
+        }
+        await ensureTranslatedRange(start, end);
+      } catch (err) {
+        console.error("Error translating on load more", err);
+      } finally {
+        loadMoreBtn.classList.remove("loading");
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = getStaticText("loadMore");
+      }
+    }
+
+    displayedCount = nextCount;
+    renderSlidesPage();
+  }
+
+  // ---------------------- Slide & Popup Rendering ----------------------//
+  function updateSlidesContent(tData, oData) {
+    // not used directly; kept for backward compatibility
+    // New pipeline uses masterCombined and computeDisplayList / renderSlidesPage
+    console.warn("Deprecated updateSlidesContent called");
+  }
+
+  function showPopup(data, dateStr, idValue) {
+    currentPopupID = idValue;
+    document.getElementById("popupTitle").innerText = data.title || "";
+    document.getElementById("popupOrganization").innerText = data.organization || "";
+    document.getElementById("popupTopic").innerText = data.topic || "";
+    document.getElementById("popupTime").innerText = formatDateTime(dateStr, data.time || "");
+    document.getElementById("popupLocation").innerText = data.location || "";
+    document.getElementById("popupPrice").innerText = `${data.price || ""} HKD`;
+    document.getElementById("popupDescription").innerText = data.description || "";
+    updateStarIcon();
+    document.getElementById("popupOverlay").style.display = "flex";
+  }
+
+  function closePopup() {
+    currentPopupID = null;
+    document.getElementById("popupOverlay").style.display = "none";
+  }
+
+  // ---------------------- Saving / Star Button ----------------------//
+  function updateStarIcon() {
+    if (!currentPopupID) return;
+    const starImg = document.getElementById("starButton");
+    starImg.src = savedIDs.includes(String(currentPopupID)) ?
+      "https://res.cloudinary.com/di751ehfz/image/upload/v1739370280/star_1_ndcskw.png" :
+      "https://res.cloudinary.com/di751ehfz/image/upload/v1739370280/star_bxmhkq.png";
+  }
+
+  function toggleSaved() {
+    if (!currentPopupID) return;
+    const strID = String(currentPopupID);
+    if (savedIDs.includes(strID)) savedIDs = savedIDs.filter(id => id !== strID);
+    else savedIDs.push(strID);
+    updateStarIcon();
+    postMessage("?" + savedIDs.join(","));
+  }
+
+  // ---------------------- Thunkable Messaging ----------------------//
+  function postMessage(msg) { ThunkableWebviewerExtension.postMessage(msg); }
+
+  // Accept JSON payload and initialize dataset
+  function updateSlidesFromJSON(jsonData) {
+    const dataObj = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
+    if (!dataObj || !Array.isArray(dataObj.data)) { console.error("Invalid JSON format: Expected { data: [...] }"); return; }
+
+    // Reset state
+    slideDataOriginal = dataObj.data.map(item => ({
+      id: item.ID,
+      Name: item.Name,
+      title: String(item.Name || ""),
+      organization: String(item.organization || `Org #${item.OrgID || ""}`),
+      OrgID: item.OrgID,
+      topic: item.SEN || item.topic || "",
+      Time: item.Time || item.time || "",
+      time: item.Time || item.time || "",
+      location: item.Location || item.location || "",
+      Location: item.Location || item.location || "",
+      price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
+      Price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
+      Date: item.Date || "",
+      description: item.Description ? String(item.Description) : "",
+      Description: item.Description ? String(item.Description) : "",
+      age: item.Age || item.age || "",
+      gender: item.Gender || item.gender || "",
+      serviceType: item.ServiceType || item.serviceType || ""
+    }));
+
+    // setup translatedDataOriginal as nulls (filled on demand)
+    translatedDataOriginal = new Array(slideDataOriginal.length).fill(null);
+
+    // prepare masterCombined for index mapping
+    masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+
+    // ensure initial translations for first page if necessary
+    displayedCount = pageSize;
+    if (targetLang === 'en') {
+      // prefill translatedDataOriginal with original data
+      for (let i = 0; i < slideDataOriginal.length; i++) {
+        const it = slideDataOriginal[i];
+        translatedDataOriginal[i] = {
+          title: it.title || "",
+          organization: it.organization || "",
+          topic: it.topic || "",
+          time: it.time || "",
+          location: it.location || "",
+          price: it.price != null ? String(it.price) : "",
+          description: it.description || "",
+          age: it.age || "",
+          gender: it.gender || "",
+          serviceType: it.serviceType || ""
+        };
+      }
+      // rebuild masterCombined with translated copies
+      masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+      computeDisplayList();
+      renderSlidesPage();
+    } else {
+      // translate only first page chunk
+      ensureTranslatedRange(0, Math.min(pageSize, slideDataOriginal.length)).then(() => {
+        // update masterCombined translations reference
+        masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+        computeDisplayList();
+        renderSlidesPage();
+      }).catch(err => {
+        console.error("Initial translation error", err);
+        // fallback
+        for (let i = 0; i < slideDataOriginal.length; i++) {
+          if (!translatedDataOriginal[i]) {
+            const it = slideDataOriginal[i];
+            translatedDataOriginal[i] = { 
+              title: it.title || "",
+              organization: it.organization || "",
+              topic: it.topic || "",
+              time: it.time || "",
+              location: it.location || "",
+              price: it.price != null ? String(it.price) : "",
+              description: it.description || "",
+              age: it.age || "",
+              gender: it.gender || "",
+              serviceType: it.serviceType || ""
+            };
+          }
+        }
+        masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+        computeDisplayList();
+        renderSlidesPage();
+      });
+    }
+  }
+
+  // Thunkable receiver
+  ThunkableWebviewerExtension.receiveMessage(function(message) {
+    try {
+      if (message.startsWith("*")) { 
+        targetLang = message.slice(1); 
+        if (slideDataOriginal.length) {
+          // Re-init translation flow for chosen language
+          translatedDataOriginal = new Array(slideDataOriginal.length).fill(null);
+          if (targetLang === 'en') {
+            // copy originals immediately
+            for (let i = 0; i < slideDataOriginal.length; i++) {
+              const it = slideDataOriginal[i];
+              translatedDataOriginal[i] = { 
+                title: it.title || "",
+                organization: it.organization || "",
+                topic: it.topic || "",
+                time: it.time || "",
+                location: it.location || "",
+                price: it.price != null ? String(it.price) : "",
+                description: it.description || "",
+                age: it.age || "",
+                gender: it.gender || "",
+                serviceType: it.serviceType || ""
+              };
+            }
+            masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+            computeDisplayList();
+            renderSlidesPage();
+          } else {
+            // translate first page for instant UX, the rest on demand
+            ensureTranslatedRange(0, Math.min(pageSize, slideDataOriginal.length)).then(() => {
+              masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
+              computeDisplayList();
+              renderSlidesPage();
+            }).catch(err => {
+              console.error("Language switch translation error", err);
+            });
+          }
+        }
+      }
+      else if (message.startsWith("?")) { 
+        savedIDs = message.substring(1).trim().split(",").filter(Boolean); 
+        updateStarIcon(); 
+      }
+      else updateSlidesFromJSON(message);
+    } catch (err) { console.error("Error processing received message:", err); }
+  });
+
+  // ---------------------- Utility: escape HTML ---------------------- //
+  function escapeHtml(unsafe) {
+    if (unsafe == null) return "";
+    return String(unsafe)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  // Initialize UI static labels
+  (function initUI() {
+    const langText = staticTranslations[targetLang] || staticTranslations["en"];
+    searchInput.placeholder = langText.searchPlaceholder;
+    searchBtn.textContent = langText.searchButton;
+    clearBtn.textContent = langText.clearButton;
+    loadMoreBtn.textContent = langText.loadMore;
+    document.getElementById("btnPriceHigh").textContent = langText.priceHighToLow;
+    document.getElementById("btnPriceLow").textContent = langText.priceLowToHigh;
+    document.getElementById("btnDateSoonest").textContent = langText.dateSoonest;
+    document.getElementById("btnDateFurthest").textContent = langText.dateFurthest;
+  })();
+
+  // Allow Enter key to trigger search
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      onSearchClick();
+    }
+  });
+</script>
+</body></html>
