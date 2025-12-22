@@ -394,6 +394,14 @@
   let isTranslating = false;
   let translationAPIUrl = "https://script.google.com/macros/s/AKfycbyOjmRSRhbTQ4HEHnR5yAb5eoNQJn2t80yvmdX03uYZzqUXqCPnZ0AjTaAEgNcleyBM/exec";
 
+  // Translation queue and batching config
+  const TRANSLATION_BATCH_SIZE = 10;   // send up to 10 items per call
+  const TRANSLATION_DELAY_MS = 1000;   // wait 1000 ms between API calls
+
+  // queue entries look like: { indices: [i,i,...], resolve, reject }
+  const translationQueue = [];
+  let translationQueueRunning = false;
+
   // Pre-translated static text content
   const staticTranslations = {
     "en": {
@@ -482,7 +490,105 @@
     return translatedText.split("\n");
   }
 
-  // Ensure translations exist for the index range [start, end) inclusive-exclusive
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Enqueue a batch of indices for translation. Returns a promise resolved when batch completes.
+  function enqueueTranslationBatch(indices) {
+    return new Promise((resolve, reject) => {
+      // normalize and unique indices
+      const unique = Array.from(new Set(indices)).sort((a,b)=>a-b);
+      translationQueue.push({ indices: unique, resolve, reject });
+      // start processing if not already
+      if (!translationQueueRunning) processTranslationQueue();
+    });
+  }
+
+  // Build CSV rows for given indices in order
+  function buildRowsForIndices(indices) {
+    return indices.map(i => {
+      const it = slideDataOriginal[i] || {};
+      const safe = (v) => (v == null ? "" : String(v)).replace(/\|/g, ' ');
+      return `${safe(it.title)}|${safe(it.organization)}|${safe(it.topic)}|${safe(it.time)}|${safe(it.location)}|${safe(it.price)}|${safe(it.description)}|${safe(it.age)}|${safe(it.gender)}|${safe(it.serviceType)}`;
+    }).join("\n");
+  }
+
+  // Process translation queue sequentially with delay between API calls
+  async function processTranslationQueue() {
+    translationQueueRunning = true;
+    while (translationQueue.length > 0) {
+      const job = translationQueue.shift();
+      const indices = job.indices || [];
+      if (!indices.length) {
+        job.resolve();
+        continue;
+      }
+
+      // break into chunks of TRANSLATION_BATCH_SIZE
+      const chunks = [];
+      for (let i = 0; i < indices.length; i += TRANSLATION_BATCH_SIZE) {
+        chunks.push(indices.slice(i, i + TRANSLATION_BATCH_SIZE));
+      }
+
+      try {
+        for (let c = 0; c < chunks.length; c++) {
+          const chunkIndices = chunks[c];
+          // create CSV rows for this chunk and call translation API once
+          const rowsCsv = buildRowsForIndices(chunkIndices);
+          isTranslating = true;
+          let translatedRows;
+          try {
+            translatedRows = await callTranslationApi(rowsCsv, 'en', targetLang);
+          } catch (err) {
+            // API error for this chunk: fallback to copying originals
+            console.error("Translation API chunk error", err);
+            translatedRows = chunkIndices.map(i => {
+              const it = slideDataOriginal[i] || {};
+              return `${it.title || ""}|${it.organization || ""}|${it.topic || ""}|${it.time || ""}|${it.location || ""}|${it.price != null ? String(it.price) : ""}|${it.description || ""}|${it.age || ""}|${it.gender || ""}|${it.serviceType || ""}`;
+            });
+          }
+
+          // Map returned translated rows back to translatedDataOriginal
+          for (let j = 0; j < chunkIndices.length; j++) {
+            const idx = chunkIndices[j];
+            const line = translatedRows[j] || "";
+            const parts = line.split("|");
+            translatedDataOriginal[idx] = {
+              title: parts[0] || "",
+              organization: parts[1] || "",
+              topic: parts[2] || "",
+              time: parts[3] || "",
+              location: parts[4] || "",
+              price: parts[5] || "",
+              description: parts[6] || "",
+              age: parts[7] || "",
+              gender: parts[8] || "",
+              serviceType: parts[9] || ""
+            };
+          }
+
+          // pause between chunk calls to avoid rate limit
+          if (c !== chunks.length - 1) {
+            await sleep(TRANSLATION_DELAY_MS);
+          }
+        }
+
+        isTranslating = false;
+        // job finished successfully
+        job.resolve();
+      } catch (err) {
+        isTranslating = false;
+        job.reject(err);
+      }
+
+      // small delay between jobs as well
+      await sleep(TRANSLATION_DELAY_MS);
+    }
+    translationQueueRunning = false;
+  }
+
+  // Ensure translations exist for the index range [start, end)
   async function ensureTranslatedRange(start, end) {
     if (targetLang === 'en') {
       for (let i = start; i < end && i < slideDataOriginal.length; i++) {
@@ -509,60 +615,12 @@
     }
     if (indices.length === 0) return;
 
-    // Build CSV for indices in order
-    const rows = indices.map(i => {
-      const it = slideDataOriginal[i];
-      // ensure none of the fields contain the pipe char; replace with space
-      const safe = (v) => (v == null ? "" : String(v)).replace(/\|/g, ' ');
-      return `${safe(it.title)}|${safe(it.organization)}|${safe(it.topic)}|${safe(it.time)}|${safe(it.location)}|${safe(it.price)}|${safe(it.description)}|${safe(it.age)}|${safe(it.gender)}|${safe(it.serviceType)}`;
-    }).join("\n");
-
-    try {
-      isTranslating = true;
-      const translatedRows = await callTranslationApi(rows, 'en', targetLang);
-      // Map back
-      for (let j = 0; j < indices.length; j++) {
-        const idx = indices[j];
-        const line = translatedRows[j] || "";
-        const parts = line.split("|");
-        translatedDataOriginal[idx] = {
-          title: parts[0] || "",
-          organization: parts[1] || "",
-          topic: parts[2] || "",
-          time: parts[3] || "",
-          location: parts[4] || "",
-          price: parts[5] || "",
-          description: parts[6] || "",
-          age: parts[7] || "",
-          gender: parts[8] || "",
-          serviceType: parts[9] || ""
-        };
-      }
-    } catch (err) {
-      console.error("Translation chunk error", err);
-      // fallback: copy original text into translated slots to avoid nulls
-      for (let idx of indices) {
-        const it = slideDataOriginal[idx];
-        translatedDataOriginal[idx] = { 
-          title: it.title || "",
-          organization: it.organization || "",
-          topic: it.topic || "",
-          time: it.time || "",
-          location: it.location || "",
-          price: it.price != null ? String(it.price) : "",
-          description: it.description || "",
-          age: it.age || "",
-          gender: it.gender || "",
-          serviceType: it.serviceType || ""
-        };
-      }
-    } finally {
-      isTranslating = false;
-    }
+    // Enqueue a single batch for these indices (the queue will split into subchunks as configured)
+    await enqueueTranslationBatch(indices);
   }
 
   // Translate all remaining items in chunks. Used on search to ensure completeness
-  async function translateAllRemaining(chunk = 30) {
+  async function translateAllRemaining(chunk = TRANSLATION_BATCH_SIZE) {
     if (targetLang === 'en') {
       // just fill any nulls with original
       for (let i = 0; i < slideDataOriginal.length; i++) {
@@ -585,19 +643,15 @@
       return;
     }
 
-    let i = 0;
-    while (i < slideDataOriginal.length) {
-      // find next block that has untranslated items
-      const start = i;
-      let blockIndices = [];
-      for (let j = start; j < Math.min(slideDataOriginal.length, start + chunk); j++) {
-        if (!translatedDataOriginal[j]) blockIndices.push(j);
-      }
-      if (blockIndices.length > 0) {
-        await ensureTranslatedRange(blockIndices[0], blockIndices[blockIndices.length - 1] + 1);
-      }
-      i = start + chunk;
+    // Build a list of indices that need translation
+    const allIndices = [];
+    for (let i = 0; i < slideDataOriginal.length; i++) {
+      if (!translatedDataOriginal[i]) allIndices.push(i);
     }
+    if (allIndices.length === 0) return;
+
+    // Enqueue all at once; queue will batch internally
+    await enqueueTranslationBatch(allIndices);
   }
 
   // ---------------------- Filter and Search Logic ---------------------- //
@@ -659,6 +713,42 @@
     if (displayedCount > pageSize) {
       displayedCount = pageSize;
     }
+  }
+
+  // ---------------------- NEW: toggleFilter function (fix) ---------------------- //
+  function toggleFilter(filterName, btnId, category) {
+    // enforce mutual exclusivity within a category
+    if (category === 'price') {
+      if (filterName === 'priceHighToLow') {
+        activeFilters = activeFilters.filter(f => f !== 'priceLowToHigh');
+        document.getElementById("btnPriceLow").classList.remove("active");
+      } else if (filterName === 'priceLowToHigh') {
+        activeFilters = activeFilters.filter(f => f !== 'priceHighToLow');
+        document.getElementById("btnPriceHigh").classList.remove("active");
+      }
+    } else if (category === 'date') {
+      if (filterName === 'dateSoonest') {
+        activeFilters = activeFilters.filter(f => f !== 'dateFurthest');
+        document.getElementById("btnDateFurthest").classList.remove("active");
+      } else if (filterName === 'dateFurthest') {
+        activeFilters = activeFilters.filter(f => f !== 'dateSoonest');
+        document.getElementById("btnDateSoonest").classList.remove("active");
+      }
+    }
+
+    // toggle the requested filter
+    if (activeFilters.includes(filterName)) {
+      activeFilters = activeFilters.filter(f => f !== filterName);
+      document.getElementById(btnId).classList.remove("active");
+    } else {
+      activeFilters.push(filterName);
+      document.getElementById(btnId).classList.add("active");
+    }
+
+    // reset page to first page and re-render
+    displayedCount = pageSize;
+    computeDisplayList();
+    renderSlidesPage();
   }
 
   // Render up to displayedCount items from displayList
@@ -730,7 +820,7 @@
       loadMoreBtn.textContent = getStaticText("loading");
       loadMoreBtn.classList.add("loading");
       try {
-        await translateAllRemaining(25);
+        await translateAllRemaining(TRANSLATION_BATCH_SIZE);
       } catch (err) {
         console.error("translateAllRemaining error", err);
       } finally {
@@ -765,26 +855,12 @@
     }
 
     if (indicesToTranslate.length > 0 && targetLang !== 'en') {
-      // ensure contiguous ranges by grouping contiguous index segments to call ensureTranslatedRange
-      indicesToTranslate.sort((a,b) => a-b);
       loadMoreBtn.disabled = true;
       loadMoreBtn.textContent = getStaticText("loading");
       loadMoreBtn.classList.add("loading");
       try {
-        // group into ranges
-        let start = indicesToTranslate[0];
-        let end = start + 1;
-        for (let k = 1; k < indicesToTranslate.length; k++) {
-          const cur = indicesToTranslate[k];
-          if (cur === end) {
-            end++;
-          } else {
-            await ensureTranslatedRange(start, end);
-            start = cur;
-            end = cur + 1;
-          }
-        }
-        await ensureTranslatedRange(start, end);
+        // enqueue the contiguous indices; queue will batch into blocks of TRANSLATION_BATCH_SIZE
+        await enqueueTranslationBatch(indicesToTranslate);
       } catch (err) {
         console.error("Error translating on load more", err);
       } finally {
@@ -901,7 +977,7 @@
       computeDisplayList();
       renderSlidesPage();
     } else {
-      // translate only first page chunk
+      // translate only first page chunk using the batched queue
       ensureTranslatedRange(0, Math.min(pageSize, slideDataOriginal.length)).then(() => {
         // update masterCombined translations reference
         masterCombined = slideDataOriginal.map((orig, i) => ({ original: orig, translated: translatedDataOriginal[i] }));
