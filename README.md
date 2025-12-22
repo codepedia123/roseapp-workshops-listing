@@ -1,1 +1,0 @@
-# roseapp-workshops-listing
