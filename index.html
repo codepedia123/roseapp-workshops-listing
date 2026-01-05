@@ -662,7 +662,7 @@
       if (filter === 'priceHighToLow') {
         sorted.sort((a, b) => (b.original.priceInternal || 0) - (a.original.priceInternal || 0));
       } else if (filter === 'priceLowToHigh') {
-        sorted.sort((a, b) => (a.original.priceInternal || 0) - (a.original.priceInternal || 0));
+        sorted.sort((a, b) => (a.original.priceInternal || 0) - (b.original.priceInternal || 0));
       } else if (filter === 'dateSoonest') {
         sorted.sort((a, b) => parseDDMMYYYY(a.original.Date) - parseDDMMYYYY(b.original.Date));
       } else if (filter === 'dateFurthest') {
@@ -785,7 +785,7 @@
       const topic = (t.topic || o.topic || "");
       const dtStr = formatDateTime(o.Date, t.time || o.time);
       const loc = (t.location || o.location || "");
-      const price = (t.price || (o.price != null ? `${o.price}` : "")) + ( (t.price || o.price != null) ? " HKD" : "" );
+      const price = (o.priceDisplay || t.price || (o.price != null ? `${o.price}` : ""));
 
       const slide = document.createElement("div");
       slide.className = "slide";
@@ -939,6 +939,7 @@
       Location: item.Location || item.location || "",
       price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
       Price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
+      priceDisplay: item.Price != null ? String(item.Price) : "",
       priceInternal: Number(item["Price-Internal"]) || (item["Price-Internal"] ? Number(item["Price-Internal"]) : 0),
       Date: item.Date || "",
       description: item.Description ? String(item.Description) : "",
