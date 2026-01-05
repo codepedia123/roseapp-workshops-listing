@@ -660,9 +660,9 @@
     const sorted = [...list];
     activeFilters.forEach(filter => {
       if (filter === 'priceHighToLow') {
-        sorted.sort((a, b) => (b.original.price || 0) - (a.original.price || 0));
+        sorted.sort((a, b) => (b.original.priceInternal || 0) - (a.original.priceInternal || 0));
       } else if (filter === 'priceLowToHigh') {
-        sorted.sort((a, b) => (a.original.price || 0) - (b.original.price || 0));
+        sorted.sort((a, b) => (a.original.priceInternal || 0) - (a.original.priceInternal || 0));
       } else if (filter === 'dateSoonest') {
         sorted.sort((a, b) => parseDDMMYYYY(a.original.Date) - parseDDMMYYYY(b.original.Date));
       } else if (filter === 'dateFurthest') {
@@ -939,6 +939,7 @@
       Location: item.Location || item.location || "",
       price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
       Price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
+      priceInternal: Number(item["Price-Internal"]) || (item["Price-Internal"] ? Number(item["Price-Internal"]) : 0),
       Date: item.Date || "",
       description: item.Description ? String(item.Description) : "",
       Description: item.Description ? String(item.Description) : "",
