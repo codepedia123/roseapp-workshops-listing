@@ -457,7 +457,8 @@
   // ---------------------- Utilities ---------------------- //
   function parseDDMMYYYY(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return new Date('1970-01-01');
-    const parts = dateStr.split('/');
+    const cleaned = dateStr.trim();
+    const parts = cleaned.split('/');
     if (parts.length !== 3) return new Date('1970-01-01');
     const [day, month, year] = parts;
     return new Date(`${year}-${month}-${day}`);
@@ -465,10 +466,33 @@
 
   function parseMMDDYYYY(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return new Date('1970-01-01');
-    const parts = dateStr.split('/');
+    const cleaned = dateStr.trim();
+    const parts = cleaned.split('/');
     if (parts.length !== 3) return new Date('1970-01-01');
     const [month, day, year] = parts;
     return new Date(`${year}-${month}-${day}`);
+  }
+
+  function parseInternalDate(dateStr) {
+    const mm = parseMMDDYYYY(dateStr);
+    if (!isNaN(mm)) return mm;
+    const dd = parseDDMMYYYY(dateStr);
+    if (!isNaN(dd)) return dd;
+    return new Date('1970-01-01');
+  }
+
+  function getFieldValue(item, keys, normalizedKey) {
+    for (const key of keys) {
+      if (item[key] != null) return item[key];
+    }
+    if (normalizedKey) {
+      const target = normalizedKey.toLowerCase();
+      for (const key of Object.keys(item)) {
+        const norm = key.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (norm === target) return item[key];
+      }
+    }
+    return "";
   }
 
   function isContinuousDate(dateValue) {
@@ -481,8 +505,8 @@
     if (aNone && bNone) return 0;
     if (aNone) return 1;
     if (bNone) return -1;
-    const aDate = parseMMDDYYYY(String(aValue || ""));
-    const bDate = parseMMDDYYYY(String(bValue || ""));
+    const aDate = parseInternalDate(String(aValue || ""));
+    const bDate = parseInternalDate(String(bValue || ""));
     return direction === "asc" ? (aDate - bDate) : (bDate - aDate);
   }
 
@@ -963,15 +987,17 @@
       topic: item.SEN || item.topic || "",
       Time: item.Time || item.time || "",
       time: item.Time || item.time || "",
-      displayTiming: item["Display Timing"] || item["Display-Timing"] || item.DisplayTiming || item.displayTiming || "",
+      displayTiming: getFieldValue(item, ["Display Timing", "Display-Timing", "DisplayTiming", "displayTiming"], "displaytiming"),
       location: item.Location || item.location || "",
       Location: item.Location || item.location || "",
       price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
       Price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
       priceDisplay: item.Price != null ? String(item.Price) : "",
-      priceInternal: Number(item["Price-Internal"]) || (item["Price-Internal"] ? Number(item["Price-Internal"]) : 0),
+      priceInternal: Number(getFieldValue(item, ["Price-Internal", "Price Internal", "PriceInternal", "priceInternal"], "priceinternal")) ||
+        (getFieldValue(item, ["Price-Internal", "Price Internal", "PriceInternal", "priceInternal"], "priceinternal") ?
+          Number(getFieldValue(item, ["Price-Internal", "Price Internal", "PriceInternal", "priceinternal"], "priceinternal")) : 0),
       Date: item.Date || "",
-      dateInternal: item["Date-Internal"] || item["Date Internal"] || item.DateInternal || item.dateInternal || "",
+      dateInternal: getFieldValue(item, ["Date-Internal", "Date Internal", "DateInternal", "dateInternal"], "dateinternal"),
       description: item.Description ? String(item.Description) : "",
       Description: item.Description ? String(item.Description) : "",
       age: item.Age || item.age || "",
