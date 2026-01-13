@@ -463,6 +463,21 @@
     return new Date(`${year}-${month}-${day}`);
   }
 
+  function isContinuousDate(dateValue) {
+    return String(dateValue || "").trim().toLowerCase() === "none";
+  }
+
+  function compareDateInternal(aValue, bValue, direction) {
+    const aNone = isContinuousDate(aValue);
+    const bNone = isContinuousDate(bValue);
+    if (aNone && bNone) return 0;
+    if (aNone) return 1;
+    if (bNone) return -1;
+    const aDate = parseDDMMYYYY(String(aValue || ""));
+    const bDate = parseDDMMYYYY(String(bValue || ""));
+    return direction === "asc" ? (aDate - bDate) : (bDate - aDate);
+  }
+
   function formatDateTime(dateStrDDMMYYYY, timeStr) {
     if (!dateStrDDMMYYYY) return timeStr || "";
     const [day, month, year] = dateStrDDMMYYYY.split('/');
@@ -664,9 +679,9 @@
       } else if (filter === 'priceLowToHigh') {
         sorted.sort((a, b) => (a.original.priceInternal || 0) - (b.original.priceInternal || 0));
       } else if (filter === 'dateSoonest') {
-        sorted.sort((a, b) => parseDDMMYYYY(a.original.Date) - parseDDMMYYYY(b.original.Date));
+        sorted.sort((a, b) => compareDateInternal(a.original.dateInternal, b.original.dateInternal, "asc"));
       } else if (filter === 'dateFurthest') {
-        sorted.sort((a, b) => parseDDMMYYYY(b.original.Date) - parseDDMMYYYY(a.original.Date));
+        sorted.sort((a, b) => compareDateInternal(a.original.dateInternal, b.original.dateInternal, "desc"));
       }
     });
     return sorted;
@@ -783,18 +798,20 @@
       const title = (t.title || o.title || "");
       const org = (t.organization || o.organization || `Org #${o.OrgID || ""}`);
       const topic = (t.topic || o.topic || "");
-      const dtStr = formatDateTime(o.Date, t.time || o.time);
+      const displayTiming = o.displayTiming || "";
+      const isContinuous = isContinuousDate(o.dateInternal);
+      const timingLabel = displayTiming ? (isContinuous ? `${displayTiming} (Continuous event)` : displayTiming) : (isContinuous ? "Continuous event" : "");
       const loc = (t.location || o.location || "");
       const price = (o.priceDisplay || t.price || (o.price != null ? `${o.price}` : ""));
 
       const slide = document.createElement("div");
       slide.className = "slide";
-      slide.onclick = () => showPopup(t && Object.keys(t).length ? t : o, o.Date, o.id);
+      slide.onclick = () => showPopup(t && Object.keys(t).length ? t : o, o.id, o);
       slide.innerHTML = `
         <h2>${escapeHtml(title)}</h2>
         <p><span style="color: #3498db;"><strong>${escapeHtml(org)}</strong></span></p>
         <p><span class="icon icon-dyslexia"></span>${escapeHtml(topic)}</p>
-        <p><span class="icon icon-clock"></span>${escapeHtml(dtStr)}</p>
+        <p><span class="icon icon-clock"></span>${escapeHtml(timingLabel)}</p>
         <p><span class="icon icon-location"></span>${escapeHtml(loc)}</p>
         <div class="price">${escapeHtml(price)}</div>`;
       slidesContainer.appendChild(slide);
@@ -881,12 +898,15 @@
     console.warn("Deprecated updateSlidesContent called");
   }
 
-  function showPopup(data, dateStr, idValue) {
+  function showPopup(data, idValue, originalData) {
     currentPopupID = idValue;
     document.getElementById("popupTitle").innerText = data.title || "";
     document.getElementById("popupOrganization").innerText = data.organization || "";
     document.getElementById("popupTopic").innerText = data.topic || "";
-    document.getElementById("popupTime").innerText = formatDateTime(dateStr, data.time || "");
+    const displayTiming = (originalData && originalData.displayTiming) || "";
+    const isContinuous = originalData && isContinuousDate(originalData.dateInternal);
+    const timingLabel = displayTiming ? (isContinuous ? `${displayTiming} (Continuous event)` : displayTiming) : (isContinuous ? "Continuous event" : "");
+    document.getElementById("popupTime").innerText = timingLabel;
     document.getElementById("popupLocation").innerText = data.location || "";
     document.getElementById("popupPrice").innerText = `${data.price || ""} HKD`;
     document.getElementById("popupDescription").innerText = data.description || "";
@@ -935,6 +955,7 @@
       topic: item.SEN || item.topic || "",
       Time: item.Time || item.time || "",
       time: item.Time || item.time || "",
+      displayTiming: item["Display Timing"] || item["Display-Timing"] || item.DisplayTiming || item.displayTiming || "",
       location: item.Location || item.location || "",
       Location: item.Location || item.location || "",
       price: Number(item.Price) || (item.Price ? Number(item.Price) : 0),
@@ -942,6 +963,7 @@
       priceDisplay: item.Price != null ? String(item.Price) : "",
       priceInternal: Number(item["Price-Internal"]) || (item["Price-Internal"] ? Number(item["Price-Internal"]) : 0),
       Date: item.Date || "",
+      dateInternal: item["Date-Internal"] || item["Date Internal"] || item.DateInternal || item.dateInternal || "",
       description: item.Description ? String(item.Description) : "",
       Description: item.Description ? String(item.Description) : "",
       age: item.Age || item.age || "",
